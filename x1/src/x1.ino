@@ -7,7 +7,6 @@ SerialLogHandler logHandler(LOG_LEVEL_ALL);
 //tell the system we have a toggle led function later 
 int togglePower(String command);
 int resetAll(String empty);
-int yell(String empty);
 
 char myID[5]="X1";
 
@@ -15,45 +14,41 @@ void setup() {
     //Tell the system 
     pinMode(D4, OUTPUT);
     pinMode(D5, OUTPUT);
+    pinMode(D6, OUTPUT);
     pinMode(D7, OUTPUT);
     
     //enable output to console
     Serial.begin();
-    
     // turn D5 on
     digitalWrite(D4, HIGH);
     
-    //listen to messages from MarCity 
-    //Mesh.subscribe("MarCity", powerHandler);
     Mesh.subscribe("PowerNet", commsHandler);
     //register togled function to the cloud
     Particle.function("toglPwr", togglePower);
     Particle.function("reset", resetAll);
-    Particle.function("yell", yell);
+
 }
 
 void loop() {
-    //Some markers to identify where I am in the code from the console
-
+    Serial.printf("\n\n----------------------------------\n");
+    Serial.print("City:Xenon1\n");
     if (analogRead(A5) > 2000 && analogRead(A4) > 3500){
-        Mesh.publish("SolCity", "RESET");
+        Mesh.publish("PowerNet", "RESET");
     } else if (analogRead(A5) >= 2000 && analogRead(A5) <= 3900) {
-        Serial.printf("\n\n*+._.+*+._.+*+._.+*+._.+*+._.+*+._.+*\n");
-        Serial.print("Power is ON\nAnalog 5 reading: ");
+        
+        Serial.print("Power is ON\nSelf-generated power levels: ");
         Serial.print(analogRead(A5));
-        Serial.printf("\n*+._.+*+._.+*+._.+*+._.+*+._.+*+._.+*\n");
+        Serial.printf("\n----------------------------------\n");
         //Mesh.publish("SolCity", "POWER GOOD");
     } else if ((analogRead(A5) > 3900 || analogRead(A5) < 2000) && analogRead(A4) < 2000) {  
-        Serial.print("\n\n*+._.+*+._.+*+._.+*+._.+*+._.+*+._.+*\n");
-        Serial.print("Power is OFF\nAnalog 4 reading: ");
+        Serial.print("Power is OFF\nOutsourced power levels: ");
         Serial.print(analogRead(A4));
-
-        Serial.print("\n\n*+._.+*+._.+*+._.+*+._.+*+._.+*+._.+*\n");
+        Serial.print("\n\n----------------------------------\n");
         noPower();
     } else if (analogRead(A5) < 2000 && analogRead(A4) > 3500){
         Serial.print("\nPower supplied by a gracious neighbor");
-        Serial.print("\nAnalog 5 reading: ");
-        Serial.print(analogRead(A5));
+        Serial.print("\nOutsourced power levels: ");
+        Serial.print(analogRead(A4));
     } else {
         Serial.println("\n\nOops! Please pay $5 BTC for me to work again! \n\n");
     }
@@ -61,7 +56,7 @@ void loop() {
 }
 
 void noPower(){
-    Mesh.publish("PowerNet", "POWER OFF");
+    Mesh.publish("PowerNet", "X1 - POWER OFF");
     Serial.print("\nAlert sent to mesh network.");
     do {
         Serial.printf("\nWaiting for power...\n");
@@ -99,34 +94,20 @@ void reroute(char who[5]){
     //do not route if already supplying power to someone else
     if (strstr(who, "A1")){
         digitalWrite(D5,HIGH);
-        Serial.print("\n\n_________________");
-        Serial.printf("\nREROUTING POWER TO MAR CITY, ID: %s", who);
-        Mesh.publish("PowerNet", "X1 - SUPPLYING POWER");
-        Serial.print("\n___________________");
+        Serial.print("\n\n______________________________");
+        Serial.printf("\nREROUTING POWER TO %s", who);
+        //Mesh.publish("PowerNet", "X1 - SUPPLYING POWER");
+        Serial.print("\n______________________________");
     } else if (strstr(who, "X2")){
         digitalWrite(D6, HIGH);
-        Serial.print("\n\n_________________");
-        Serial.printf("\nREROUTING POWER TO ARENA CITY, ID: %s", who);
-        Mesh.publish("PowerNet", "X1 - SUPPLYING POWER");
-        Serial.print("\n___________________");
+        Serial.print("\n\n______________________________");
+        Serial.printf("\nREROUTING POWER TO %s", who);
+        //Mesh.publish("PowerNet", "X1 - SUPPLYING POWER");
+        Serial.print("\n______________________________");
     }
 }
 
-//called when Sol city sees a message form Mar City
-// void powerHandler(const char *event, const char *data){
-//     Serial.printf("\nIncoming message from Mar City: %s", data);
-//     //this is probably no longer needed since pwr good messages are not sent anymore
-//     if (String(data) == "POWER GOOD") {
 
-//     } else if (String(data) == "POWER OFF") {
-//         Serial.println("\nPWR OFF");
-//         reroute();
-//     } else if (String(data) == "RESET") {
-//         digitalWrite(D5,LOW);
-//     } else {
-//         Serial.println("I am confused and cannot process that request...");
-//     }
-// }
 void commsHandler(const char *event, const char *data){
 
     //char a1[5] = "X1";
@@ -135,24 +116,28 @@ void commsHandler(const char *event, const char *data){
     char lowPwr[12] = "POWER OFF";
     char rts[5]= "RTS";
     char cts[5]= "CTS";
-    // break at any point if data contains "SUPPLYING"
+
         //handle recieved low power messages
     if (strstr(data, lowPwr)){
         if (strstr(data, a1)){
             char *target[5] = {a1};
             Serial.printf("\n%s Has No Power!! \n", *target);
             delay((random(0,41)/random(10,16))*10000);
-            Mesh.publish("PowerNet", "A1 - RTS");
+            Mesh.publish("PowerNet", "X1 - RTS");
         } else if (strstr(data, x2)){
             char *target[5] = {x2};
             Serial.printf("\n%s Has No Power!! \n", *target);
             delay((random(0,41)/random(10,16))*10000);
-            Mesh.publish("PowerNet", "A1 - RTS");
+            Mesh.publish("PowerNet", "X1 - RTS");
         } else { 
         }
     //handle CTS messages
-    } else if (strstr(data, myID) && strstr(data, cts)){
-        reroute(a1);
+   } else if (strstr(data, cts)){
+        if (strstr(data, myID) && strstr(data,x2)){
+          reroute(x2);
+        } else if (strstr(data, myID) && strstr(data,a1)){
+          reroute(a1);
+        }
     //handle RTS messages
     } else if (strstr(data, rts)){
         // parse who sent RTS
@@ -195,15 +180,7 @@ int togglePower(String command){
 }
 
 int resetAll(String empty){
-    Mesh.publish("SolCity", "RESET");
+    Mesh.publish("PowerNet", "RESET");
     digitalWrite(D4, HIGH);
-    return 0;
-}
-
-int yell(String empty){
-
-    //using this to test functionality of Mar Grid
-    Serial.print("\nSending message to Argon...\n");
-    Mesh.publish("PowerNet","X1 - POWER OFF");
     return 0;
 }
