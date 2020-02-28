@@ -7,7 +7,6 @@ int resetAll(String empty);
 char myID[5]="X2";
 
 void setup() {
-    pinMode(D4, OUTPUT);
     pinMode(D5, OUTPUT);
     pinMode(D6, OUTPUT);
     pinMode(D7, OUTPUT);
@@ -19,32 +18,39 @@ void setup() {
     Particle.function("toglPwr", togglePower);
     Particle.function("reset", resetAll);
 
-    digitalWrite(D4, HIGH);
+    digitalWrite(D7, HIGH);
     
 }
 
 void loop() {
   Serial.printf("\n\n----------------------------------\n");
   Serial.print("City:Xenon2\n");
-    if (analogRead(A5) > 2000 && analogRead(A4) > 3500){
-        Mesh.publish("PowerNet", "RESET");
-    } else if (analogRead(A5) >= 2000 && analogRead(A5) <= 3900) {
+
+
+//A3 reads power supplied from X1
+//A4 reads power supplied from A1
+//A5 reads power supplied form SELF
+
+    //read if power is on
+    if (analogRead(A5) >= 3000) {
         Serial.print("Power is ON\nSelf-generated power levels: ");
         Serial.print(analogRead(A5));
         Serial.printf("\n----------------------------------\n");
-    } else if ((analogRead(A5) < 3000) && (analogRead(A3) < 3000 )&& (analogRead(A4)) < 3000) {  
+    //read all analogs to see if power is being recieved
+    } else if ((analogRead(A5) < 3000) && (analogRead(A3) < 3000 ) && (analogRead(A4)) < 3000) {  
         Serial.print("Power is OFF\nOutsourced power levels /A4: ");
         Serial.print(analogRead(A4));        
         Serial.print("Power is OFF\nOutsourced power levels /A3: ");
         Serial.print(analogRead(A3));
         Serial.print("\n\n----------------------------------\n");
         noPower();
-    } else if (analogRead(A5) < 2000 && (analogRead(A4) > 3500 || analogRead(A3) >3500)){
+    //read all analogs and determine if power is being supplied by others
+    } else if (analogRead(A5) < 3000 && (analogRead(A4) > 3000 || analogRead(A3) >3000)){
         Serial.print("\nPower supplied by a gracious neighbor");
         Serial.print("\nOutsourced power levels: ");
         Serial.print(analogRead(A4));
     } else {
-        Serial.println("\n\nOops! Please pay $5 BTC for me to work again! \n\n");
+        Serial.println("\n\nOops! Please pay $5 BTC for me to work again! \n");
         Serial.print("\nOutsourced power levels /A4: ");
         Serial.print(analogRead(A4));
         Serial.print("\nOutsourced power levels /A3: ");
@@ -102,14 +108,21 @@ void noPower(){
     Serial.print("\nAlert sent to mesh network.");
     do {
         Serial.print("\nWaiting for power...\n");
-        delay(2300);
-        } while((analogRead(A5) > 3900 || analogRead(A5) < 2000) && analogRead(A4) < 3500); 
+        Serial.print("\nA4: ");
+        Serial.print(analogRead(A4));
+        Serial.print("\nA3: ");
+        Serial.print(analogRead(A3));
+        Serial.print("\nA5: ");
+        Serial.print(analogRead(A5));
+        delay(10000);
+        } while((analogRead(A5) > 3000 || analogRead(A5) < 3000) && analogRead(A4) < 3000); 
 }
     
 void commsHandler(const char *event, const char *data){
-
+    Serial.print("\n\n data:");
+    Serial.print(data);
+    Serial.print("\n\n");
     char x1[5] = "X1";
-    //char x2[5] = "X2";
     char a1[5] = "A1";
     char lowPwr[12] = "POWER OFF";
     char rts[5]= "RTS";
@@ -121,12 +134,12 @@ void commsHandler(const char *event, const char *data){
             char *target[5] = {x1};
             Serial.printf("\n%s Has No Power!! \n", *target);
             delay((random(0,41)/random(10,16))*10000);
-            Mesh.publish("PowerNet", "X2 - RTS");
+            Mesh.publish("PowerNet", "X2 - X1 RTS");
         } else if (strstr(data, a1)){
             char *target[5] = {a1};
             Serial.printf("\n%s Has No Power!! \n", *target);
             delay((random(0,41)/random(10,16))*10000);
-            Mesh.publish("PowerNet", "X2 - RTS");
+            Mesh.publish("PowerNet", "X2 - A1 RTS");
         } else { 
         }
     //handle CTS messages
@@ -136,18 +149,18 @@ void commsHandler(const char *event, const char *data){
         } else if (strstr(data, myID) && strstr(data,a1)){
           reroute(a1);
         }
-    //handle RTS messages
+    //respond to RTS messages
     } else if (strstr(data, rts)){
         // parse who sent RTS
-         if (strstr(data, x1)){
+         if (strstr(data, x1) && strstr(data, myID)){
              //if no one has already sent power
-            if (analogRead(A4)<2000){
+            if (analogRead(A4)<3000 && analogRead(A3) < 3000 && analogRead(A5) < 3000){
                 //CTS
                  Mesh.publish("PowerNet", "X2 - X1 CTS");
              }
-        } else if (strstr(data, a1)){
-            if (analogRead(A4)<20000){
-                 Mesh.publish("PowerNet", "X2 - A1 CTS");
+        } else if (strstr(data, a1) && strstr(data, myID)){
+            if (analogRead(A4)<3000 && analogRead(A3) < 3000 && analogRead(A5) < 3000){
+                 Mesh.publish("PowerNet", "X2 - A1 CTS");  
              }
         } else { 
         } 
@@ -164,17 +177,17 @@ void commsHandler(const char *event, const char *data){
 
 int resetAll(String empty){
     Mesh.publish("PowerNet", "RESET");
-    digitalWrite(D4, HIGH);
+    digitalWrite(D7, HIGH);
     return 0;
 }
 
 int togglePower(String command){
      if (command=="on") {
-        digitalWrite(D4,HIGH);
+        digitalWrite(D7,HIGH);
         return 1;
     }
     else if (command=="off") {
-        digitalWrite(D4,LOW);
+        digitalWrite(D7,LOW);
         return 0;
     }
     else {
